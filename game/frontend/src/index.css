@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100dvh;
+}
+
+@media (min-width: 1024px) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/**
+ * Standalone play (port 5173, not spectate):
+ * - lg+: strict viewport-fit via Flex/Grid + min-h-0 (no JS scaling)
+ * - below lg: natural vertical flow with page scroll
+ */
+@media (min-width: 1024px) {
+  .game-play-shell {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .game-room-shell {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-scene-slot {
+    container-type: size;
+    flex: 1 1 0%;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .game-scene-fit {
+    width: min(100cqw, calc(100cqh * 3 / 2));
+    aspect-ratio: 3 / 2;
+    max-width: 100%;
+    max-height: 100%;
+  }
+}
+
+.game-scene-slot {
+  width: 100%;
+}
+
+body {
+  @apply m-0 h-full bg-mm-bg text-mm-text font-retro antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.pixel-border {
+  border: 3px solid #6b4c9a;
+  box-shadow:
+    inset 0 0 0 1px #1a1025,
+    0 0 0 2px #1a1025,
+    4px 4px 0 rgba(0, 0, 0, 0.45);
+}
+
+.pixel-btn {
+  @apply pixel-border bg-mm-panel px-3 py-2 text-sm uppercase tracking-wide transition;
+}
+
+.pixel-btn:hover:not(:disabled) {
+  @apply bg-mm-border text-white;
+}
+
+.pixel-btn:disabled {
+  @apply cursor-not-allowed opacity-50;
+}
+
+.pixel-btn-active {
+  @apply bg-mm-accent text-mm-bg;
+}
+
+.hotspot {
+  @apply absolute cursor-pointer rounded border-2 border-transparent px-2 py-1 text-xs uppercase;
+  background: rgba(244, 197, 66, 0.15);
+}
+
+.hotspot:hover,
+.hotspot-active {
+  @apply border-mm-accent bg-mm-accent/30 text-mm-accent;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #6b4c9a rgba(107, 76, 154, 0.35);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(107, 76, 154, 0.35);
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #6b4c9a;
+  border-radius: 4px;
+  min-height: 1.5rem;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #8b6cc0;
+}
+
+/* BASIC-style block caret for the command line (static, non-blinking). */
+.command-input-wrap {
+  isolation: isolate;
+}
+
+.command-input-field {
+  position: relative;
+  z-index: 1;
+}
+
+.command-block-caret {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 0.45em;
+  height: 1.05em;
+  pointer-events: none;
+  background-color: #ffffff;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.command-input-wrap:focus-within .command-block-caret {
+  opacity: 1;
+}

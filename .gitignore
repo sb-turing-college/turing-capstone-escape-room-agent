@@ -1,0 +1,38 @@
+# Python / uv
+**/.venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+**/dist/
+build/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+agent/.disclaimer_accepted
+
+# Runtime data (SQLite, vector store)
+*.db
+**/chroma_db/
+
+# Node
+**/node_modules/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

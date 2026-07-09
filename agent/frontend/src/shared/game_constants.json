@@ -1,0 +1,80 @@
+{
+  "room_labels": {
+    "library": "The Library",
+    "parlor": "The Parlor",
+    "lords_office": "Lord's Office"
+  },
+  "item_labels": {
+    "brass_key": "Brass Key",
+    "lockbox": "Lockbox",
+    "note_code": "Note",
+    "note_memo": "Memo",
+    "small_key": "Small Key",
+    "rope": "Rope",
+    "hook": "Hook",
+    "chainsaw": "Chainsaw",
+    "grappling_hook": "Grappling Hook",
+    "painting": "Painting",
+    "safe": "Safe",
+    "grate": "Iron Grate",
+    "door": "Oak Door",
+    "secret_book": "Old Book",
+    "unearthly_ladder": "Unearthly Ladder",
+    "hook_on_grate": "Hook on the Grate"
+  },
+  "direction_labels": {
+    "north": "North",
+    "south": "South",
+    "east": "East",
+    "west": "West",
+    "north-west": "North-West",
+    "north-east": "North-East",
+    "south-west": "South-West",
+    "south-east": "South-East",
+    "down": "Down"
+  },
+  "room_positions": {
+    "library": { "x": 0, "y": 0 },
+    "parlor": { "x": 220, "y": 120 },
+    "lords_office": { "x": 440, "y": 240 }
+  },
+  "room_use_extras": {
+    "library": ["door", "lockbox"],
+    "parlor": ["grate"],
+    "lords_office": ["painting", "safe"]
+  },
+  "commands": {
+    "verbs": [
+      "examine",
+      "take",
+      "use",
+      "open",
+      "go",
+      "look around",
+      "inventory",
+      "read",
+      "pull",
+      "speak",
+      "touch"
+    ],
+    "syntax_patterns": [
+      "take X",
+      "use X with Y",
+      "go <direction>",
+      "open X",
+      "open X with Y",
+      "read X",
+      "speak X",
+      "examine X",
+      "pull X",
+      "touch X",
+      "look around",
+      "inventory"
+    ],
+    "default_fallback": {
+      "touch": "Ordinary to the touch.",
+      "pull": "This doesn't seem to work.",
+      "speak": "This doesn't seem to have an effect."
+    }
+  }
+}

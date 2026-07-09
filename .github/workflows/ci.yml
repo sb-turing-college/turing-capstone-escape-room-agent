@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  game-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --dev
+      - run: uv run pytest -q
+
+  game-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: game/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  agent-backend:
+    runs-on: ubuntu-latest
+    env:
+      # .env is gitignored; unit tests still construct LLM clients via load_dotenv
+      OPENROUTER_API_KEY: ci-dummy-key-not-used-in-unit-tests
+    defaults:
+      run:
+        working-directory: agent/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --dev
+      - run: uv run pytest -q
+
+  agent-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: agent/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test
+      - run: npm run build

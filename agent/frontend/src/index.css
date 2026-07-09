@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #2a1f45 0%, #0b0714 55%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Native selects/options — dark anthracite (OS dropdown list) */
+select option {
+  background-color: #18181b;
+  color: #e5e7eb;
+}
+
+.react-flow__node {
+  font-size: 11px;
+}
+
+.discovered-map-flow .react-flow__controls-button {
+  background-color: #000;
+  color: #9ca3af;
+  border-color: #374151;
+}
+
+.discovered-map-flow .react-flow__controls-button:hover {
+  background-color: #111827;
+  color: #d1d5db;
+}
+
+.discovered-map-flow .react-flow__controls-button:disabled {
+  color: #4b5563;
+}
