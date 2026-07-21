@@ -164,7 +164,7 @@ cd game/frontend && npm run build
 | Content | Location |
 |---------|----------|
 | Source code (AGPL-3.0) | [LICENSE](LICENSE) |
-| Creative assets (CC BY-NC-ND) | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
+| Creative assets & overview PDF (CC BY-NC-ND) | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
 | Disclaimer | [DISCLAIMER.md](DISCLAIMER.md) |
 | Architecture & trade-offs | [ARCHITECTURE.md](ARCHITECTURE.md#6-design-decisions--trade-offs) |
 

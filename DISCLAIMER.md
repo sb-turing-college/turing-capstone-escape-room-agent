@@ -36,7 +36,7 @@ The agent backend includes puzzle hints for moderation and tooling (e.g. `agent/
 
 ## Creative assets
 
-Story text, pixel art, and other creative content in `game/` are licensed separately under **CC BY-NC-ND 4.0** (see [LICENSE-ASSETS.md](LICENSE-ASSETS.md)). You may not use these assets commercially or create derivative works without permission.
+Story text, pixel art, and other creative content in `game/`, as well as the project overview PDF and its screenshots under `docs/`, are licensed separately under **CC BY-NC-ND 4.0** (see [LICENSE-ASSETS.md](LICENSE-ASSETS.md)). You may not use these assets commercially or create derivative works without permission.
 
 Optional room PNGs copied into `agent/frontend/public/assets/rooms/` remain under the same CC license.
 

@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# PDFs must stay binary (Windows CRLF would corrupt them)
+*.pdf binary
+*.PDF binary

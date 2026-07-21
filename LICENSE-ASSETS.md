@@ -2,11 +2,12 @@
 
 Copyright (c) 2026 Stefan Baade
 
-The following creative works in this monorepo (primarily under `game/`) are **not** covered by AGPL-3.0:
+The following creative works in this monorepo are **not** covered by AGPL-3.0:
 
 - Story text, room descriptions, puzzle design, and in-game copy
 - Pixel art, sprites, backgrounds, UI graphics, and examine images
 - Audio (if added later)
+- Project overview PDF and its embedded screenshots (`docs/Escape-Room-Agent-Overview.pdf`)
 
 Program source code is licensed under AGPL-3.0 — see LICENSE.
 
