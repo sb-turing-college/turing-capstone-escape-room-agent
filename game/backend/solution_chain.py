@@ -1,4 +1,7 @@
-"""Canonical optimal walkthrough for Chapter 0 (library → demo ending).
+"""Canonical discovery walkthrough for Chapter 0 (library → demo ending).
+
+This is the first-principles path used in tests (26 commands). It is not the
+shortest possible route once puzzle knowledge is already known.
 
 Shared by the CLI script `test_solution.py` and pytest
 (`tests/test_solution_walkthrough.py`).

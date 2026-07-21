@@ -1,4 +1,4 @@
-"""Pytest coverage for the full optimal walkthrough (Chapter 0 → demo ending)."""
+"""Pytest coverage for the canonical discovery walkthrough (Chapter 0 → demo ending)."""
 
 from __future__ import annotations
 

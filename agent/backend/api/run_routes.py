@@ -5,6 +5,7 @@ from __future__ import annotations
 from db.datetime_utils import utc_now
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from openai import APIError, AuthenticationError, RateLimitError
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -48,6 +49,24 @@ from db.models import ChatMessageRecord, RunRecord, StepRecord
 from memory.chroma_store import ChromaStore
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+
+
+def _http_for_llm_provider_error(exc: APIError) -> HTTPException:
+    """Map OpenRouter/OpenAI client errors to a client-safe HTTP error."""
+    if isinstance(exc, AuthenticationError):
+        return HTTPException(
+            status_code=502,
+            detail="OpenRouter authentication failed — check OPENROUTER_API_KEY.",
+        )
+    if isinstance(exc, RateLimitError):
+        return HTTPException(
+            status_code=502,
+            detail="LLM provider rate limit exceeded. Try again later.",
+        )
+    message = (getattr(exc, "message", None) or str(exc)).strip() or "unknown error"
+    if len(message) > 200:
+        message = f"{message[:200]}…"
+    return HTTPException(status_code=502, detail=f"LLM provider error: {message}")
 
 
 def _is_send_command_action(content: str | None) -> bool:
@@ -446,24 +465,27 @@ async def post_run_chat(
     history = load_chat_history(db, run)
     transcript = build_transcript(db, run)
     question = body.message.strip()
-    history = await maybe_compress_interview_history(
-        db,
-        run,
-        history,
-        transcript,
-        run.memory_model,
-        pending_question=question,
-    )
     store = ChromaStore(str(settings["chroma_persist_dir"]))
-    reply = await ask_about_run(
-        run,
-        transcript,
-        history,
-        question,
-        store,
-        run.memory_model,
-        db,
-    )
+    try:
+        history = await maybe_compress_interview_history(
+            db,
+            run,
+            history,
+            transcript,
+            run.memory_model,
+            pending_question=question,
+        )
+        reply = await ask_about_run(
+            run,
+            transcript,
+            history,
+            question,
+            store,
+            run.memory_model,
+            db,
+        )
+    except APIError as exc:
+        raise _http_for_llm_provider_error(exc) from exc
 
     user_record = ChatMessageRecord(
         run_id=run_id,

@@ -1,6 +1,6 @@
 # The Haunted Manor — Architecture
 
-Implementation reference for the **Haunted Manor monorepo** (game engine, human UI, and AI agent). For the **research goal** and motivation, see [README.md](./README.md) (top). For setup and commands, see the same file. For design trade-offs, see [REFLECTIONS.md](./REFLECTIONS.md).
+Implementation reference for the **Haunted Manor monorepo** (game engine, human UI, and AI agent). For the **research goal** and motivation, see [README.md](./README.md) (top). For setup and commands, see the same file. Design trade-offs: [§6](#6-design-decisions--trade-offs). Project walkthrough with screenshots: [docs/Escape-Room-Agent-Overview.pdf](docs/Escape-Room-Agent-Overview.pdf).
 
 ---
 
@@ -50,9 +50,9 @@ Two components share one adventure world. **The Haunted Manor** (game) owns rule
 | REST API | `game/backend/api/game_routes.py` | `/game/*`, save/load, export/restore |
 | Persistence | `game/backend/db/` | SQLite; `SavedGameRecord` |
 | Frontend | `game/frontend/src/` | React + Zustand (`gameStore` + action modules); UI hooks under `hooks/` |
-| Pixel assets | `game/frontend/public/assets/` | Room backgrounds, sprites, UI (CC BY-NC-ND — see [LICENSE-ASSETS.md](../LICENSE-ASSETS.md)) |
+| Pixel assets | `game/frontend/public/assets/` | Room backgrounds, sprites, UI (CC BY-NC-ND — see [LICENSE-ASSETS.md](LICENSE-ASSETS.md)) |
 | Tests | `game/backend/tests/` | Engine, API contract, save/load, walkthrough |
-| Solution (dev) | `game/backend/solution_chain.py` | Canonical optimal path; **spoilers** |
+| Solution (dev) | `game/backend/solution_chain.py` | Canonical discovery walkthrough (26 commands); **spoilers** |
 
 ### 2.1 Repository layout
 
@@ -167,7 +167,7 @@ Every flex child that should shrink **must** have `min-h-0` (or `min-w-0` in row
 
 ### 2.5 Assets
 
-Pixel art (room backgrounds, sprites, UI) is **committed** under `game/frontend/public/assets/`. The Vite dev server and production build serve these as static files. Creative assets are licensed under CC BY-NC-ND 4.0 — see [LICENSE-ASSETS.md](../LICENSE-ASSETS.md).
+Pixel art (room backgrounds, sprites, UI) is **committed** under `game/frontend/public/assets/`. The Vite dev server and production build serve these as static files. Creative assets are licensed under CC BY-NC-ND 4.0 — see [LICENSE-ASSETS.md](LICENSE-ASSETS.md).
 
 ---
 
@@ -391,7 +391,7 @@ cd game/frontend && npm run build
 | Game backend | 122 pytest | Engine, puzzles, save/load, API contract, room-scoped `object_states` |
 | Agent backend | 121 pytest | Runner, routes, memory, human hints, interview transcript/grounding/supersede, run nudges, command lineage, `max_steps` persistence/backfill, game client contract; 2 integration tests skip without game API on port 8000 |
 | Agent frontend | 24 Vitest | `stepLogUtils` (incl. `formatSegmentCommandBudget`, `resolveRunMaxSteps`), `mapGraph`, `wheelInput` |
-| Game frontend | — | Build only in CI (no unit tests); layout/scroll behaviour documented in §2.4.1 and §6 |
+| Game frontend | — | Build only in CI (no unit tests); layout/scroll behaviour documented in §2.4.1 and §7 |
 
 CI: `.github/workflows/ci.yml`
 
@@ -421,10 +421,12 @@ CI runs on a clean checkout; `agent.db` is not committed.
 
 ### Configuration
 
+Game needs no `.env` for local play (defaults below). Agent requires `agent/.env` (from `agent/.env.example`) for `OPENROUTER_API_KEY`.
+
 | Variable | Component | Default | Purpose |
 |----------|-----------|---------|---------|
-| `DATABASE_URL` | game | `sqlite:///./capstone.db` | Human save slots |
-| `CORS_ORIGINS` | game | `http://localhost:5173` | Game frontend origin |
+| `DATABASE_URL` | game | `sqlite:///./capstone.db` | Human save slots (optional override) |
+| `CORS_ORIGINS` | game | `http://localhost:5173` | Game frontend origin (optional override) |
 | `DATABASE_URL` | agent | `sqlite:///./agent.db` | Run history |
 | `CHROMA_PERSIST_DIR` | agent | `./chroma_db` | Vector memory |
 | `GAME_API_BASE_URL` | agent | `http://127.0.0.1:8000` | Game API target |
@@ -433,7 +435,23 @@ CI runs on a clean checkout; `agent.db` is not committed.
 
 ---
 
-## 6. Frontend follow-ups (documented, not yet implemented)
+## 6. Design decisions & trade-offs
+
+Intentional boundaries — what was chosen, and what was deliberately not built.
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Puzzle **actions** vs. **rendering** | Actions live in `interactions.py` (data-driven). Room text and UI object states still assemble partly in `engine.py`. | A full templating layer would be a second mini-engine; overkill for a three-room demo. Action paths that can silently drift are declarative; remaining presentation helpers are small and tested. |
+| Agent **runner** | One linear orchestrator in `runner.py` (persist → LLM → emit → repeat). | Splitting into many tiny modules would not remove duplication; it would make one sequential run harder to trace. Extract when a new strategy or backend forces a real boundary. |
+| **Pixel UI** layout | Sprite positions in `sceneConfig.ts`; object IDs aligned with the engine. | Layout belongs in the frontend unless the API ships coordinates (out of scope). Content set is small and stable. |
+| **Shared TypeScript types** | Game and agent frontends keep separate `GameState` shapes. | Agent needs a subset only; a shared package adds monorepo tooling for little gain at this scale. |
+| **Human-in-the-loop** | One pause/resume path for Give Hint and `ask_human`; hints/answers as typed steps (`human_hint`, `human_response`). | Avoid two pause systems. Typed steps keep post-run interview grounded without mid-run memory tools. |
+
+**Precise framing:** action logic is data-driven; rendering assembly remains partially imperative in the engine — not “the engine has no game-specific knowledge.”
+
+---
+
+## 7. Frontend follow-ups (documented, not yet implemented)
 
 Review notes from a layout/UX pass (July 2026). **No code changes scheduled here** — listed for future maintenance.
 
@@ -452,7 +470,7 @@ Review notes from a layout/UX pass (July 2026). **No code changes scheduled here
 
 ---
 
-## 7. Ethics and limits
+## 8. Ethics and limits
 
 **Privacy:** No personal accounts; local SQLite only; API keys stay server-side in the agent backend.
 

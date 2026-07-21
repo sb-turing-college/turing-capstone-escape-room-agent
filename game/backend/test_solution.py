@@ -1,4 +1,4 @@
-"""CLI walkthrough for the optimal solution chain (verbose output).
+"""CLI walkthrough for the canonical discovery solution chain (verbose output).
 
 Standalone regression script (not pytest). The same chain is asserted in
 `tests/test_solution_walkthrough.py`.

@@ -117,7 +117,7 @@ export default function RoomScene({
           <button
             key={`${p.id}-${idx}`}
             type="button"
-            title={p.label}
+            aria-label={p.label}
             onClick={() => onSelectItem(p.id)}
             className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-0"
             style={{ left: `${p.left}%`, top: `${p.top}%`, width: `${p.width}%` }}

@@ -91,12 +91,14 @@ Other verbs: `examine`, `take`, `use`, `open`, `go`, `pull`, `speak`, `touch`.
 
 ## Configuration
 
-`.env.example` → `.env` (game backend):
+No `.env` required for standalone play (no LLM/API keys). Built-in defaults:
 
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | SQLite path (default: `sqlite:///./capstone.db`) |
-| `CORS_ORIGINS` | Allowed frontend origins (default: `http://localhost:5173`) |
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `sqlite:///./capstone.db` | Human save slots |
+| `CORS_ORIGINS` | `http://localhost:5173` | Game frontend origin |
+
+Optional overrides: set process env vars, or create a local `game/.env` (gitignored).
 
 Saves: SQLite (`saved_games`), no login — `client_id` in `localStorage`.
 
@@ -116,12 +118,12 @@ See [DISCLAIMER.md](../DISCLAIMER.md).
 | Ports 8000/5173 in use | `..\scripts\start-game.ps1 -Restart` from monorepo root |
 | Frontend shows backend errors | Backend on port 8000 |
 | Empty save/load | Same browser/`client_id`; backend DB not deleted |
-| Agent cannot reach game | Backend on 8000; check CORS in `.env` |
+| Agent cannot reach game | Backend on 8000; check `GAME_API_BASE_URL` in `agent/.env` |
 
 General monorepo issues: [../README.md](../README.md#troubleshooting).
 
 ## Security
 
-- Never commit `.env`
 - No user accounts — local SQLite saves only
+- If you create a local `game/.env` for overrides, never commit it
 - Game API for local demo/development, not hardened for public internet

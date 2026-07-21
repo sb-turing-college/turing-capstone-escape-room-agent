@@ -1,5 +1,6 @@
 # Python / uv
 **/.venv/
+**/uv.lock
 **/__pycache__/
 *.py[cod]
 *$py.class
@@ -36,3 +37,6 @@ agent/.disclaimer_accepted
 *.swp
 .DS_Store
 Thumbs.db
+
+# Local document working copies (LibreOffice etc.) — commit PDF only
+*.odt

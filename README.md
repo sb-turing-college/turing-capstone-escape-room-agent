@@ -6,7 +6,7 @@ A browser-based text adventure (**The Haunted Manor**, Chapter 0) plus **Escape 
 
 **Research goal:** A controlled sandbox to:
 
-1. Compare AI models on **competency**, **efficiency**, and **tool use**
+1. Compare AI models on **competency**, **efficiency** (commands to reach the ending — including after cross-run learning), and **tool use**
 2. Inspect **reasoning and thinking** traces during play
 3. Explore **agentic workflows** and **RAG** in a reproducible setup
 
@@ -22,9 +22,10 @@ A browser-based text adventure (**The Haunted Manor**, Chapter 0) plus **Escape 
 
 > **Information for Recruiters & Hiring Managers**  
 > This monorepo is my capstone project for Turing College. Clone it, run it locally, and explore the implementation.  
+> **Visual overview (PDF):** [docs/Escape-Room-Agent-Overview.pdf](docs/Escape-Room-Agent-Overview.pdf) — project walkthrough with screenshots (game, agent UI, example runs).  
 > Source code is **AGPL-3.0**; creative assets are **CC BY-NC-ND 4.0** (see [LICENSE-ASSETS.md](LICENSE-ASSETS.md)).
 
-Architecture and design trade-offs: [ARCHITECTURE.md](ARCHITECTURE.md) · [REFLECTIONS.md](REFLECTIONS.md)
+Architecture (incl. design trade-offs): [ARCHITECTURE.md](ARCHITECTURE.md#6-design-decisions--trade-offs)
 
 ## What's inside
 
@@ -42,15 +43,15 @@ Architecture and design trade-offs: [ARCHITECTURE.md](ARCHITECTURE.md) · [REFLE
 | Game backend | 122 pytest tests (engine, puzzles, save/load, API contract, room-scoped object_states) |
 | Agent backend | 121 pytest tests (119 run in CI; 2 integration tests skip without game API); runner, routes, memory, interview grounding/supersede, run nudges, command lineage, `max_steps` persistence/backfill, game client contract |
 | Agent frontend | 24 Vitest tests (`stepLogUtils`, `mapGraph`, `wheelInput`) |
-| Solvability | Optimal walkthrough: **26 commands** → demo ending (`test_solution_walkthrough.py`) |
+| Solvability | Canonical **discovery** walkthrough: **26 commands** → demo ending (`test_solution_walkthrough.py`). That path is the first-principles solve used in tests — not the shortest possible route. |
 
-**Live agent runs (requires `OPENROUTER_API_KEY`):** Each run is stored in SQLite with `success`, `steps_count`, `max_steps` (segment budget), and `explorer_model`. Compare models via the **Review** tab or `GET /agent/runs`. Default step cap: **50** (`DEFAULT_MAX_STEPS`). Success rates vary by model and prompt — use **Batch runs** (`POST /agent/batch`) for side-by-side comparison rather than a single fixed score.
+**Live agent runs (requires `OPENROUTER_API_KEY`):** Each run is stored in SQLite with `success`, `steps_count`, `max_steps` (segment budget), and `explorer_model`. Compare models via the **Review** tab or `GET /agent/runs`. Default step cap: **50** (`DEFAULT_MAX_STEPS`). Beyond binary success, **efficiency** on later attempts (fewer commands after memory / interview notes) is part of the evaluation story. Success rates vary by model and prompt — use **Batch runs** (`POST /agent/batch`) for side-by-side comparison rather than a single fixed score.
 
 **Capstone case mapping:** Primary **Case 2** (AI agent for task automation); includes **Case 1** elements (ChromaDB RAG for cross-run memory + structured step retrieval and command grounding for post-run interview), **human-in-the-loop** pause (`Give Hint`, optional `ask_human` with quota 0–3), and **Case 6** topics (API boundary, contract tests, WebSocket observability). Details: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Ethical considerations
 
-- **Privacy:** No user accounts; game saves and agent run history stay in local SQLite/ChromaDB on your machine ([ARCHITECTURE.md](ARCHITECTURE.md) §7).
+- **Privacy:** No user accounts; game saves and agent run history stay in local SQLite/ChromaDB on your machine ([ARCHITECTURE.md](ARCHITECTURE.md#8-ethics-and-limits) §8).
 - **Fairness:** Fixed puzzle world; the agent has no access to game source or `solution_chain.py` during play.
 - **Safety:** Optional Mistral moderation on outbound commands; API keys only in server-side `.env`.
 - **Cost & transparency:** LLM calls use OpenRouter (paid per token); see [DISCLAIMER.md](DISCLAIMER.md) and [agent/README.md](agent/README.md).
@@ -165,7 +166,7 @@ cd game/frontend && npm run build
 | Source code (AGPL-3.0) | [LICENSE](LICENSE) |
 | Creative assets (CC BY-NC-ND) | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
 | Disclaimer | [DISCLAIMER.md](DISCLAIMER.md) |
-| Architectural trade-offs | [REFLECTIONS.md](REFLECTIONS.md) |
+| Architecture & trade-offs | [ARCHITECTURE.md](ARCHITECTURE.md#6-design-decisions--trade-offs) |
 
 ## Troubleshooting
 
