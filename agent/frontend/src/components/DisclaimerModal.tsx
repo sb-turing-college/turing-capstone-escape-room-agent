@@ -46,7 +46,7 @@ export function DisclaimerModal({ onAccepted }: DisclaimerModalProps) {
           <p>
             The agent acts without manual approval for each step. Outputs may be wrong or incomplete.
             There is <strong className="font-semibold text-gray-100">no warranty</strong> and no guarantee
-            of success.
+            of success. Provider terms of service apply.
           </p>
           <p>
             Read the full{" "}

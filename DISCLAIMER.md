@@ -50,7 +50,7 @@ The game stores save data in a local SQLite database. The agent stores run histo
 
 ## Third-party services and LLM costs
 
-The **Escape Room Agent** in `agent/` uses third-party LLM APIs (e.g. **OpenRouter** by default). API usage may incur costs according to the provider’s pricing, including unexpected usage if keys are exposed or runs are left unattended. Never commit API keys; keep `.env` local and private.
+The **Escape Room Agent** in `agent/` uses third-party LLM APIs (e.g. **OpenRouter** by default). API usage may incur costs according to the provider’s pricing, including unexpected usage if keys are exposed or runs are left unattended. Never commit API keys; keep `.env` local and private. Provider terms of service apply to your use of their APIs.
 
 ## Moderation
 
