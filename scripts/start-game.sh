@@ -1,136 +1,137 @@
 #!/usr/bin/env bash
-# Start The Haunted Manor (backend + frontend + browser)
-# Usage: ./scripts/start-game.sh [--restart]
+# Local launcher for The Haunted Manor (game backend + frontend).
+#
+# Default: one terminal via pinned `concurrently` in `scripts/package.json`.
+# Lifecycle mirrors start-all.sh (trap -> port cleanup safety net).
+#
+# Prefixes: game-api, game-ui
+#
+# Usage:
+#   ./scripts/start-game.sh
+#   ./scripts/start-game.sh --restart
+#   ./scripts/start-game.sh --no-browser
+#   ./scripts/start-game.sh --separate-windows
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
 MONOREPO_ROOT="$(dirname "$SCRIPT_DIR")"
 GAME_ROOT="$MONOREPO_ROOT/game"
-cd "$MONOREPO_ROOT"
-
 BACKEND_PORT=8000
 FRONTEND_PORT=5173
 BACKEND_DIR="$GAME_ROOT/backend"
 FRONTEND_DIR="$GAME_ROOT/frontend"
-GAME_URL="http://127.0.0.1:$FRONTEND_PORT"
-API_DOCS_URL="http://127.0.0.1:$BACKEND_PORT/docs"
-RESTART=false
+PORTS_TO_MANAGE=("$BACKEND_PORT" "$FRONTEND_PORT")
 
-if [[ "${1:-}" == "--restart" ]]; then
-  RESTART=true
+RESTART=false
+NO_BROWSER=false
+SEPARATE_WINDOWS=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --restart) RESTART=true ;;
+    --no-browser) NO_BROWSER=true ;;
+    --separate-windows) SEPARATE_WINDOWS=true ;;
+    -h|--help)
+      sed -n '1,20p' "$0"
+      exit 0
+      ;;
+  esac
+done
+
+if [[ ! -d "$GAME_ROOT" ]]; then
+  echo "ERROR: game/ folder not found at $GAME_ROOT" >&2
+  exit 1
 fi
 
-require_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Error: '$1' not found in PATH." >&2
-    exit 1
+CLEANED_UP=false
+cleanup() {
+  if $CLEANED_UP; then
+    return 0
   fi
-}
-
-get_port_pid() {
-  local port=$1
-  if command -v lsof >/dev/null 2>&1; then
-    lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n1 || true
-  elif command -v ss >/dev/null 2>&1; then
-    ss -ltnp "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -n1 || true
-  else
-    echo ""
+  CLEANED_UP=true
+  if $SEPARATE_WINDOWS; then
+    return 0
   fi
+  echo ""
+  echo "Safety-net port cleanup..."
+  sleep 0.5
+  stop_listening_ports "${PORTS_TO_MANAGE[@]}"
+  echo "Shutdown complete."
 }
+trap cleanup EXIT INT TERM
 
-stop_port() {
-  local port=$1
-  local pid
-  pid="$(get_port_pid "$port")"
-  if [[ -n "$pid" ]]; then
-    echo "Stopping process $pid on port $port..."
-    kill "$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
-    sleep 0.5
-  fi
-}
+echo "=== The Haunted Manor launcher ==="
 
-port_listening() {
-  local port=$1
-  [[ -n "$(get_port_pid "$port")" ]]
-}
+command -v uv >/dev/null 2>&1 || { echo "ERROR: uv not found in PATH" >&2; exit 1; }
+command -v npm >/dev/null 2>&1 || { echo "ERROR: npm not found in PATH" >&2; exit 1; }
 
-start_terminal() {
-  local title=$1
-  local cmd=$2
-  if command -v gnome-terminal >/dev/null 2>&1; then
-    gnome-terminal --title="$title" -- bash -c "$cmd; exec bash"
-  elif command -v xterm >/dev/null 2>&1; then
-    xterm -T "$title" -e bash -c "$cmd; exec bash" &
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    osascript -e "tell app \"Terminal\" to do script \"$cmd\""
-  else
-    echo "Starting in background: $title"
-    bash -c "$cmd" &
-  fi
-  echo "Started: $title"
-}
-
-require_cmd uv
-require_cmd npm
+echo ""
+echo "[1] Freeing ports (${PORTS_TO_MANAGE[*]})..."
+# --restart kept for README compatibility; ports are always freed at start.
+stop_listening_ports "${PORTS_TO_MANAGE[@]}"
+sleep 1
+if $RESTART; then
+  echo "  (--restart: ports cleared)"
+fi
 
 if [[ ! -d "$BACKEND_DIR/.venv" ]]; then
-  echo "First run: backend setup..."
-  (cd "$BACKEND_DIR" && uv venv && uv sync)
+  echo "  First run: uv sync (game backend)..."
+  (cd "$BACKEND_DIR" && uv sync)
+fi
+ensure_frontend_npm_deps "$FRONTEND_DIR" "game frontend"
+
+if $SEPARATE_WINDOWS; then
+  echo ""
+  echo "[2] Separate windows mode..."
+  start_service_terminal "game-api (:$BACKEND_PORT)" \
+    "cd '$BACKEND_DIR' && echo 'game-api' && uv run uvicorn main:app --host 127.0.0.1 --port $BACKEND_PORT --reload"
+  start_service_terminal "game-ui (:$FRONTEND_PORT)" \
+    "cd '$FRONTEND_DIR' && echo 'game-ui' && npm run dev"
+  wait_http_ok "http://127.0.0.1:$BACKEND_PORT/health" "game-api" || true
+  wait_port_listening "$FRONTEND_PORT" "game-ui" || true
+  if ! $NO_BROWSER; then
+    sleep 2
+    open_url "http://127.0.0.1:$FRONTEND_PORT"
+  fi
+  echo ""
+  echo "Game: http://127.0.0.1:$FRONTEND_PORT"
+  echo "Separate windows: close each terminal to stop that service."
+  SEPARATE_WINDOWS=true
+  exit 0
 fi
 
-if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
-  echo "First run: frontend setup..."
-  (cd "$FRONTEND_DIR" && npm install)
-fi
+ensure_script_npm_deps "$SCRIPT_DIR"
 
-if $RESTART; then
-  echo "Restart mode: freeing ports $BACKEND_PORT and $FRONTEND_PORT..."
-  stop_port "$BACKEND_PORT"
-  stop_port "$FRONTEND_PORT"
-fi
-
-echo ""
-echo "The Haunted Manor - startup"
-echo ""
-
-backend_running=false
-frontend_running=false
-port_listening "$BACKEND_PORT" && backend_running=true
-port_listening "$FRONTEND_PORT" && frontend_running=true
-
-if $backend_running && ! $RESTART; then
-  echo "Backend already running on port $BACKEND_PORT (skipping)."
-else
-  $backend_running && stop_port "$BACKEND_PORT"
-  backend_cmd="cd '$BACKEND_DIR' && uv run uvicorn main:app --host 127.0.0.1 --port $BACKEND_PORT --reload"
-  start_terminal "Haunted Manor - Backend" "$backend_cmd"
-fi
-
-if $frontend_running && ! $RESTART; then
-  echo "Frontend already running on port $FRONTEND_PORT (skipping)."
-else
-  $frontend_running && stop_port "$FRONTEND_PORT"
-  frontend_cmd="cd '$FRONTEND_DIR' && npm run dev"
-  start_terminal "Haunted Manor - Frontend" "$frontend_cmd"
-fi
-
-if ! $backend_running || ! $frontend_running || $RESTART; then
-  echo "Waiting for servers..."
-  sleep 4
-fi
-
-if command -v xdg-open >/dev/null 2>&1; then
-  xdg-open "$GAME_URL" >/dev/null 2>&1 || true
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  open "$GAME_URL" || true
+BROWSER_PID=""
+if ! $NO_BROWSER; then
+  (
+    sleep 5
+    open_url "http://127.0.0.1:$FRONTEND_PORT"
+  ) &
+  BROWSER_PID=$!
 fi
 
 echo ""
-echo "API docs: $API_DOCS_URL"
-echo "Game:     $GAME_URL"
+echo "[2] Starting game-api + game-ui in this terminal (concurrently)..."
+echo "  Ctrl+C stops both; port cleanup runs via trap."
+echo "  Game: http://127.0.0.1:$FRONTEND_PORT"
 echo ""
-echo "Tips:"
-echo "  Close the backend/frontend windows to stop"
-echo "  ./scripts/start-game.sh --restart kill existing servers and start fresh"
-echo ""
+
+cd "$SCRIPT_DIR"
+npm exec -- concurrently \
+  -n "game-api,game-ui" \
+  -c "blue,cyan" \
+  --kill-others \
+  "cd '$BACKEND_DIR' && uv run uvicorn main:app --host 127.0.0.1 --port $BACKEND_PORT --reload" \
+  "cd '$FRONTEND_DIR' && npm run dev"
+status=$?
+
+if [[ -n "$BROWSER_PID" ]]; then
+  kill "$BROWSER_PID" 2>/dev/null || true
+fi
+
+exit "$status"

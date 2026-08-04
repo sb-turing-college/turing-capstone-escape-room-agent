@@ -20,7 +20,7 @@ Browser-based text adventure (**Chapter 0**) with three rooms, fixed puzzles, an
 
 ## Quick start
 
-From the monorepo root (recommended): `..\scripts\start-game.ps1` (game only) or `..\scripts\start-all.ps1` (with agent). See [../README.md](../README.md).
+From the monorepo root (recommended): `..\scripts\start-game.ps1` (game only) or `..\scripts\start-all.ps1` (with agent). Default: **one terminal** with log prefixes. See [../README.md](../README.md).
 
 ### Manual (this folder only)
 

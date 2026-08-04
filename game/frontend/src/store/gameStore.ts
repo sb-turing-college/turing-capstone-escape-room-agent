@@ -51,5 +51,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
   ...createGameApiActions(set, get),
   ...createSaveLoadActions(set, get),
   ...createIntroActions(set, get),
-  ...createSpectatorActions(set),
+  ...createSpectatorActions(set, get),
 }));

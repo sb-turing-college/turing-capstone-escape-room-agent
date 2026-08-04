@@ -42,7 +42,8 @@ export interface GameStore {
   playEndingSequence: () => Promise<void>;
   startIntroSequence: () => Promise<void>;
   skipIntro: () => void;
-  attachSpectate: (sessionId: string) => Promise<void>;
+  attachSpectate: (sessionId: string, options?: { live?: boolean }) => Promise<void>;
+  setSpectateLive: (live: boolean) => void;
   detachSpectate: () => void;
   fetchSaveSlots: () => Promise<void>;
   saveToSlot: (slot: number) => Promise<SaveActionResult>;

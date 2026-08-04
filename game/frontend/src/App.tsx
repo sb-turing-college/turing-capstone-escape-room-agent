@@ -10,6 +10,8 @@ import StartScreen from "./components/StartScreen";
 import ViewTransitionOverlay from "./components/ViewTransitionOverlay";
 import { useGameStore } from "./store/gameStore";
 
+const SPECTATE_LIVE_MESSAGE = "capstone-spectate-live";
+
 export default function App() {
   const {
     view,
@@ -22,15 +24,28 @@ export default function App() {
     cinematicSubtitle,
     attachSpectate,
     detachSpectate,
+    setSpectateLive,
   } = useGameStore();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("spectate");
     if (!sessionId) return;
-    void attachSpectate(sessionId);
+    const live = params.get("live") === "1";
+    void attachSpectate(sessionId, { live });
     return () => detachSpectate();
   }, [attachSpectate, detachSpectate]);
+
+  // Agent dashboard toggles live polling without remounting the iframe.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string; live?: boolean } | null;
+      if (!data || data.type !== SPECTATE_LIVE_MESSAGE) return;
+      setSpectateLive(Boolean(data.live));
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [setSpectateLive]);
 
   return (
     <>

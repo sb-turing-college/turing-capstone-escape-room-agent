@@ -45,7 +45,7 @@ Architecture (incl. design trade-offs): [ARCHITECTURE.md](ARCHITECTURE.md#6-desi
 | Agent frontend | 24 Vitest tests (`stepLogUtils`, `mapGraph`, `wheelInput`) |
 | Solvability | Canonical **discovery** walkthrough: **26 commands** → demo ending (`test_solution_walkthrough.py`). That path is the first-principles solve used in tests — not the shortest possible route. |
 
-**Live agent runs (requires `OPENROUTER_API_KEY`):** Each run is stored in SQLite with `success`, `steps_count`, `max_steps` (segment budget), and `explorer_model`. Compare models via the **Review** tab or `GET /agent/runs`. Default step cap: **50** (`DEFAULT_MAX_STEPS`). Beyond binary success, **efficiency** on later attempts (fewer commands after memory / interview notes) is part of the evaluation story. Success rates vary by model and prompt — use **Batch runs** (`POST /agent/batch`) for side-by-side comparison rather than a single fixed score.
+**Live agent runs (requires at least one provider key):** Set `OPENROUTER_API_KEY` and/or `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` in `agent/.env`. Models without a key appear disabled in the dropdown. Each run is stored in SQLite with `success`, `steps_count`, `max_steps` (segment budget), and `explorer_model`. Compare models via the **Review** tab or `GET /agent/runs`. Default step cap: **50** (`DEFAULT_MAX_STEPS`). Beyond binary success, **efficiency** on later attempts (fewer commands after memory / interview notes) is part of the evaluation story. Success rates vary by model and prompt — use **Batch runs** (`POST /agent/batch`) for side-by-side comparison rather than a single fixed score.
 
 **Capstone case mapping:** Primary **Case 2** (AI agent for task automation); includes **Case 1** elements (ChromaDB RAG for cross-run memory + structured step retrieval and command grounding for post-run interview), **human-in-the-loop** pause (`Give Hint`, optional `ask_human` with quota 0–3), and **Case 6** topics (API boundary, contract tests, WebSocket observability). Details: [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -54,7 +54,7 @@ Architecture (incl. design trade-offs): [ARCHITECTURE.md](ARCHITECTURE.md#6-desi
 - **Privacy:** No user accounts; game saves and agent run history stay in local SQLite/ChromaDB on your machine ([ARCHITECTURE.md](ARCHITECTURE.md#8-ethics-and-limits) §8).
 - **Fairness:** Fixed puzzle world; the agent has no access to game source or `solution_chain.py` during play.
 - **Safety:** Optional Mistral moderation on outbound commands; API keys only in server-side `.env`.
-- **Cost & transparency:** LLM calls use OpenRouter (paid per token); see [DISCLAIMER.md](DISCLAIMER.md) and [agent/README.md](agent/README.md).
+- **Cost & transparency:** LLM calls use OpenRouter and/or direct Google Gemini / Anthropic Claude APIs (paid per token); see [DISCLAIMER.md](DISCLAIMER.md) and [agent/README.md](agent/README.md).
 
 Bias from model choice and prompts is possible; runs are logged for manual review in Escape Room Agent.
 
@@ -62,17 +62,17 @@ Bias from model choice and prompts is possible; runs are logged for manual revie
 
 - Python 3.11+ with [uv](https://docs.astral.sh/uv/)
 - Node.js 18+
-- **Full stack only:** `OPENROUTER_API_KEY` in `agent/.env` (copy from `agent/.env.example`)
+- **Full stack only:** at least one LLM provider key in `agent/.env` (copy from `agent/.env.example`): `OPENROUTER_API_KEY`, `GOOGLE_API_KEY`, and/or `ANTHROPIC_API_KEY`
 
 ## First-time setup (clone or zip)
 
 This repository ships **source only**. Not included (see `.gitignore`):
 
 - Python virtualenvs (`.venv/`) — created on first `uv sync` or `uv run`
-- Node dependencies (`node_modules/`) — `npm install` in each `frontend/` folder
+- Node dependencies (`node_modules/`) — `npm install` in each `frontend/` folder and in `scripts/` (pinned `concurrently` for the launchers)
 - Local data (`*.db`, `chroma_db/`, `agent/.disclaimer_accepted`)
 
-**Easiest:** from the repo root, run `.\scripts\start-game.ps1` (game only) or `.\scripts\start-all.ps1` (full stack). Both scripts install missing deps on first launch; backends use `uv run`.
+**Easiest:** from the repo root, run `.\scripts\start-game.ps1` (game only) or `.\scripts\start-all.ps1` (full stack). Both scripts install missing deps on first launch; backends use `uv run`; orchestration uses pinned `concurrently` under `scripts/`.
 
 **Manual (all four parts):**
 
@@ -97,7 +97,7 @@ Best if you have two minutes and just want to try the adventure.
 .\scripts\start-game.ps1
 ```
 
-Restart: `.\scripts\start-game.ps1 -Restart` · Stop: close the backend/frontend terminal windows
+Stop: **Ctrl+C** in the launcher terminal (ports cleaned in `finally`). Options: `-Restart` · `-NoBrowser` · `-SeparateWindows` (debug escape hatch).
 
 **Linux / macOS:**
 
@@ -106,20 +106,22 @@ chmod +x scripts/start-game.sh
 ./scripts/start-game.sh
 ```
 
+Stop: **Ctrl+C**. Options: `--restart` · `--no-browser` · `--separate-windows`.
+
 Game: http://localhost:5173 · API docs: http://localhost:8000/docs
 
 ### Full stack (The Haunted Manor + Escape Room Agent)
 
-Starts game backend & frontend, Escape Room Agent backend & UI (four terminals).
+Starts all four services in **one terminal** (colored log prefixes via `scripts/` + `concurrently`).
 
 **Windows:**
 
 ```powershell
-copy agent\.env.example agent\.env   # set OPENROUTER_API_KEY
+copy agent\.env.example agent\.env   # set provider API key(s)
 .\scripts\start-all.ps1
 ```
 
-Options: `-SkipGame` · `-NoBrowser`
+Options: `-SkipGame` · `-NoBrowser` · `-SeparateWindows`
 
 **Linux / macOS:**
 
@@ -129,7 +131,7 @@ chmod +x scripts/start-all.sh
 ./scripts/start-all.sh
 ```
 
-Options: `--skip-game` · `--no-browser`
+Options: `--skip-game` · `--no-browser` · `--separate-windows`
 
 | Service | Port |
 |---------|------|
@@ -172,7 +174,8 @@ cd game/frontend && npm run build
 
 | Problem | Fix |
 |---------|-----|
-| Ports in use | `.\scripts\start-game.ps1 -Restart` or close terminal windows from `start-all` |
+| Ports in use | Ctrl+C the launcher, or `.\scripts\start-game.ps1 -Restart` / re-run `start-all` (ports freed at start + on exit) |
 | Agent cannot reach game | Game backend on 8000; check `GAME_API_BASE_URL` in `agent/.env` |
 | Live game view empty | Game **frontend** must run on 5173 (included in `start-all`) |
-| Missing API key | Copy `agent/.env.example` → `agent/.env`, set `OPENROUTER_API_KEY` |
+| Missing API key | Copy `agent/.env.example` → `agent/.env`; set `OPENROUTER_API_KEY` and/or `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` |
+| Models greyed out | Expected when that provider’s key is empty; dropdown shows `🔒 … (no API key)` |

@@ -34,6 +34,8 @@ Two components share one adventure world. **The Haunted Manor** (game) owns rule
 
 **Full stack:** `scripts/start-all.ps1` / `scripts/start-all.sh` from the monorepo root. **Game only:** `scripts/start-game.ps1` / `scripts/start-game.sh`.
 
+**Local launcher:** By default both launchers multiplex services in **one terminal** via pinned [`concurrently`](https://www.npmjs.com/package/concurrently) declared in `scripts/package.json` (+ lockfile) — not a root `package.json`. Log prefixes: `game-api`, `game-ui`, `agent-api`, `agent-ui`. Shared helpers live in `scripts/lib/`. Shutdown: Ctrl+C → concurrently `--kill-others` → port cleanup in `finally` / `trap` as a safety net for `uvicorn --reload` / Vite process trees on Windows. Escape hatch: `-SeparateWindows` / `--separate-windows`. Skip game: `-SkipGame` / `--skip-game` (does not free game ports).
+
 **Shared data:** `game/shared/game_constants.json` — room/item labels, map positions, and a `commands` block (`verbs`, `syntax_patterns`, `default_fallback` messages). The game backend loads verbs and parser copy from here; agent prompts and tools use the synced copy. Committed copies in `agent/backend/shared/` and `agent/frontend/src/shared/`; sync via `agent/scripts/sync-game-constants.mjs` when labels or command vocabulary change.
 
 **Chapter 0 rooms:** `library` → `parlor` → `lords_office`
@@ -332,7 +334,7 @@ agent/frontend/src/
 
 - **Sessions tab** (`SessionsTab`) — two vertical blocks:
   1. **Run Control** panel (`RunControlPanel`) — one bordered card; on large screens an internal split grid (`45fr` / `55fr`):
-     - **Left:** run configuration — **Draft** label or selected run id, explorer model (dropdown in draft only), max commands, human assists, optional hint, action buttons. **Create Session** is **always visible** and is always the **first** button (empty state, draft, run selected, and while another run is active). It starts or resets draft mode (`setPendingNewSession`). Other buttons follow: **Start Run** (draft), **Resume Run** / **New Attempt** (existing run selected).
+     - **Left:** run configuration — **Draft** label or selected run id, explorer model (**optgroup** dropdown: OpenRouter / Google Gemini / Anthropic Claude; options disabled without API key), max commands, human assists, optional hint, action buttons. **Create Session** is **always visible** and is always the **first** button (empty state, draft, run selected, and while another run is active). It starts or resets draft mode (`setPendingNewSession`). Other buttons follow: **Start Run** (draft), **Resume Run** / **New Attempt** (existing run selected).
      - **Right:** **Command Counter** — SVG learning curve (`SessionLearningCurve`, `variant="embedded"`; cumulative `send_command` totals; last 20 non-running runs; green = success, orange = stopped, red = failed).
   2. **Session List** (`SessionManager`) — full width below the panel; run table (newest first; completion dates **24h**). Row hover highlights the matching chart point (shared `hoveredRunId` between list and counter).
   - **Empty state:** hint *Select a run below or click "Create Session".* + **Create Session**.
@@ -341,7 +343,7 @@ agent/frontend/src/
   - **While a run is active** (`isRunning`): Run Control stays visible with a short status message, **Create Session**, and the command chart (panel is not hidden — user can start configuring another session without leaving Sessions).
   - Click any row selects that run for **Review** (`analysisRunId`) **without changing tabs**; Run Control reflects the selection for resume/retry.
   - **Start Run** navigates to **Live** (`onRunStarted`). Run end/failure (WebSocket) selects the finished run for **Review** but does **not** force a tab switch — the spectator can stay on **Live**.
-- **Live tab:** Game spectate iframe left (`GameSpectatorPanel`, `VITE_GAME_FRONTEND_URL`, default `http://127.0.0.1:5173`); discovered map + **Decision Graph** (reasoning timeline) right. WebSocket events drive live state. Live command header: `segment/max | Total: cumulative`. **Give Hint** pauses before the next game action; optional response on resume. When the agent calls `ask_human`, an **Agent question** modal shows `current_theory` + question until the spectator resumes (with or without text). Typed steps `human_hint` / `human_response` appear in the step log when text was provided.
+- **Live tab:** Game spectate iframe left (`GameSpectatorPanel`, `VITE_GAME_FRONTEND_URL`, default `http://127.0.0.1:5173`); discovered map + **Decision Graph** (reasoning timeline) right. WebSocket events drive live state. Live command header: `segment/max | Total: cumulative`. **Give Hint** pauses before the next game action; optional response on resume. When the agent calls `ask_human`, an **Agent question** modal shows `current_theory` + question until the spectator resumes (with or without text). Typed steps `human_hint` / `human_response` appear in the step log when text was provided. Spectate iframe polls game state at 1.5s **only while the run is `running`** (parent `postMessage` toggles live polling; idle/completed keeps the last frame without spam).
 - **Review tab:** 50/50 grid on large screens — left column **Agent Chat** (top, ~60%) and **Agent Memory** (bottom, ~40%); right column **Agent Logs** (`RunAnalysis` step timeline, filters incl. system/human steps, replay map via the same `mapGraph.applyRoomVisited` helper as Live). Uses the run selected in Sessions (`analysisRunId`). Post-run chat via `GET/POST /agent/run/{id}/chat` (lineage transcript, command grounding, glossary); memory list via `GET /agent/memory` (includes `superseded_by` when a note was replaced).
 - **Layout shell:** `App.tsx` uses `h-dvh flex flex-col overflow-hidden`; all three tabs stay **mounted** (`hidden` when inactive) so Live chat and scroll state survive tab switches; each tab scrolls internally (`min-h-0` + `overflow-y-auto` where needed).
 - **Store pattern:** Same composition model as `game/frontend` (thin store + action modules). Notable UI state: `pendingNewSession`, `sessionsTabRequested` (optional navigate to Sessions), `analysisRunId`, `activeMemorySessionId`. Run end does **not** auto-switch tabs.
@@ -421,7 +423,7 @@ CI runs on a clean checkout; `agent.db` is not committed.
 
 ### Configuration
 
-Game needs no `.env` for local play (defaults below). Agent requires `agent/.env` (from `agent/.env.example`) for `OPENROUTER_API_KEY`.
+Game needs no `.env` for local play (defaults below). Agent requires `agent/.env` (from `agent/.env.example`) with **at least one** provider key for the models you select.
 
 | Variable | Component | Default | Purpose |
 |----------|-----------|---------|---------|
@@ -431,7 +433,10 @@ Game needs no `.env` for local play (defaults below). Agent requires `agent/.env
 | `CHROMA_PERSIST_DIR` | agent | `./chroma_db` | Vector memory |
 | `GAME_API_BASE_URL` | agent | `http://127.0.0.1:8000` | Game API target |
 | `CORS_ORIGINS` | agent | `http://localhost:5174` | Dashboard origin |
-| `OPENROUTER_API_KEY` | agent | — | Required for LLM runs |
+| `OPENROUTER_API_KEY` | agent | — | OpenRouter group models |
+| `GOOGLE_API_KEY` | agent | — | Direct Gemini models (`model_catalog.py`) |
+| `ANTHROPIC_API_KEY` | agent | — | Direct Claude models (`model_catalog.py`) |
+| `AVAILABLE_MODELS` | agent | (see `.env.example`) | OpenRouter slugs only (comma-separated) |
 
 ---
 
@@ -446,6 +451,7 @@ Intentional boundaries — what was chosen, and what was deliberately not built.
 | **Pixel UI** layout | Sprite positions in `sceneConfig.ts`; object IDs aligned with the engine. | Layout belongs in the frontend unless the API ships coordinates (out of scope). Content set is small and stable. |
 | **Shared TypeScript types** | Game and agent frontends keep separate `GameState` shapes. | Agent needs a subset only; a shared package adds monorepo tooling for little gain at this scale. |
 | **Human-in-the-loop** | One pause/resume path for Give Hint and `ask_human`; hints/answers as typed steps (`human_hint`, `human_response`). | Avoid two pause systems. Typed steps keep post-run interview grounded without mid-run memory tools. |
+| **Local launcher** | One-terminal `concurrently` under `scripts/` (+ lockfile); port cleanup in `finally`/`trap`; `-SeparateWindows` escape hatch. | Avoids a root-only npm package for app code; Windows reload grandchildren need a deterministic safety net. |
 
 **Precise framing:** action logic is data-driven; rendering assembly remains partially imperative in the engine — not “the engine has no game-specific knowledge.”
 

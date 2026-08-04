@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { fetchSpectateSession } from "../hooks/useAgentSocket";
 import { useDisplayRun } from "../hooks/useDisplayRun";
@@ -11,10 +11,19 @@ const GAME_FRONTEND_URL =
 const SPECTATE_SCALE = 0.63;
 const SPECTATE_VIEW_HEIGHT = 523;
 const SPECTATE_IFRAME_HEIGHT = 830;
+const SPECTATE_LIVE_MESSAGE = "capstone-spectate-live";
 
 type GameSpectatorPanelProps = {
   fillHeight?: boolean;
 };
+
+function gameFrontendOrigin(): string {
+  try {
+    return new URL(GAME_FRONTEND_URL).origin;
+  } catch {
+    return "http://127.0.0.1:5173";
+  }
+}
 
 export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelProps) {
   const { focusedRunId, isRunning } = useDisplayRun();
@@ -24,6 +33,7 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
   const [restored, setRestored] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Prefer session_id from run_started (avoids endless pending while the run is live).
   useEffect(() => {
@@ -111,6 +121,16 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedRunId]);
 
+  // Toggle game-iframe polling: 1.5s while running, stopped when idle/complete.
+  useEffect(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win || !sessionId) return;
+    win.postMessage(
+      { type: SPECTATE_LIVE_MESSAGE, live: isRunning },
+      gameFrontendOrigin(),
+    );
+  }, [isRunning, sessionId]);
+
   const iframeSrc = sessionId
     ? `${GAME_FRONTEND_URL}/?spectate=${encodeURIComponent(sessionId)}`
     : null;
@@ -173,8 +193,15 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
       {iframeSrc && !error && (
         <div className={viewportClass} style={viewportStyle}>
           <iframe
+            ref={iframeRef}
             title="Haunted Manor — agent spectate"
             src={iframeSrc}
+            onLoad={() => {
+              iframeRef.current?.contentWindow?.postMessage(
+                { type: SPECTATE_LIVE_MESSAGE, live: isRunning },
+                gameFrontendOrigin(),
+              );
+            }}
             className="absolute left-0 top-0 origin-top-left border-0 bg-black"
             style={{
               width: `${100 / SPECTATE_SCALE}%`,

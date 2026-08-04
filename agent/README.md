@@ -9,11 +9,11 @@ Autonomous AI agent for **The Haunted Manor**. Plays exclusively through the gam
 From the monorepo root (recommended):
 
 ```powershell
-copy agent\.env.example agent\.env   # set OPENROUTER_API_KEY
+copy agent\.env.example agent\.env   # set OPENROUTER_API_KEY and/or GOOGLE_API_KEY / ANTHROPIC_API_KEY
 .\scripts\start-all.ps1
 ```
 
-Options: `-SkipGame` · `-NoBrowser` — see [../README.md](../README.md) for Linux/macOS and game-only start.
+Options: `-SkipGame` · `-NoBrowser` · `-SeparateWindows` — see [../README.md](../README.md) for Linux/macOS and game-only start. Default launcher uses **one terminal** (colored prefixes).
 
 ### Manual (this folder only)
 
@@ -114,7 +114,7 @@ OpenAPI: http://localhost:8001/docs
 | `GET/POST /agent/run/{run_id}/chat` | Post-run interview chat (grounded command index + `save_to_memory` / `supersedes`) |
 | `GET /agent/memory` | Memory entries (`superseded_by` when a note was replaced) |
 | `POST /agent/memory/clear` | Clear ChromaDB |
-| `GET /agent/models` | OpenRouter models |
+| `GET /agent/models` | Grouped model catalog (`groups` + flat `models`); `disabled` when provider key missing |
 | `WS /ws/{run_id}` | Live events |
 
 ## Configuration
@@ -123,7 +123,10 @@ OpenAPI: http://localhost:8001/docs
 
 | Variable | Purpose |
 |----------|---------|
-| `OPENROUTER_API_KEY` | **Required** for agent runs |
+| `OPENROUTER_API_KEY` | OpenRouter group (slugs in `AVAILABLE_MODELS`) |
+| `GOOGLE_API_KEY` | Direct Gemini models (`model_catalog.py`) |
+| `ANTHROPIC_API_KEY` | Direct Claude models (`model_catalog.py`) |
+| `AVAILABLE_MODELS` | Comma-separated OpenRouter slugs |
 | `GAME_API_BASE_URL` | Game backend (default: `http://127.0.0.1:8000`) |
 | `MISTRAL_API_KEY` | Optional: command moderation |
 | `DATABASE_URL` | SQLite run history |
@@ -172,7 +175,7 @@ See [DISCLAIMER.md](../DISCLAIMER.md).
 | Agent cannot reach game API | Game backend on 8000; `GAME_API_BASE_URL` in `.env` |
 | Live game view empty | Game **frontend** on 5173 (use `scripts/start-all.ps1` from monorepo root) |
 | WebSocket drops | Keep agent backend running; check run ID in URL |
-| Missing `OPENROUTER_API_KEY` | Copy `.env.example` → `.env` |
+| Missing provider API key | Copy `.env.example` → `.env`; set keys for the providers you want enabled |
 | Spurious **model** runs (0 commands) in history | `uv run python scripts/cleanup_test_runs.py` from `backend/` |
 | Review shows `commands 6` without `/budget` on old runs | `uv run python scripts/backfill_max_steps.py` (`--dry-run` first) |
 
