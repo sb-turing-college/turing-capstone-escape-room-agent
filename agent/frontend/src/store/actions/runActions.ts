@@ -1,4 +1,4 @@
-import type { GameState, RunResultInfo, RunSummary } from "../../types/agent";
+import type { GameState, ModelGroup, RunResultInfo, RunSummary } from "../../types/agent";
 import type { AgentStoreGet, AgentStoreSet } from "../agentStoreTypes";
 import { resetReasoningCounter } from "./reasoningActions";
 
@@ -11,6 +11,15 @@ function persistActiveRunId(runId: string | null): void {
   } else {
     window.localStorage.removeItem(ACTIVE_RUN_STORAGE_KEY);
   }
+}
+
+function firstEnabledModel(groups: ModelGroup[]): string {
+  for (const group of groups) {
+    for (const model of group.models) {
+      if (!model.disabled) return model.id;
+    }
+  }
+  return "";
 }
 
 export function createRunActions(set: AgentStoreSet, _get: AgentStoreGet) {
@@ -46,19 +55,27 @@ export function createRunActions(set: AgentStoreSet, _get: AgentStoreGet) {
     setMaxHumanAssists: (value: number) =>
       set({ maxHumanAssists: Math.max(0, Math.min(3, value)) }),
 
-    setModels: (models: string[], explorer: string, memory: string) =>
+    setModels: (groups: ModelGroup[], explorer: string, memory: string) => {
+      const explorerEnabled = groups.some((g) =>
+        g.models.some((m) => m.id === explorer && !m.disabled),
+      );
+      const selected = explorerEnabled ? explorer : firstEnabledModel(groups);
       set({
-        models,
+        modelGroups: groups,
         defaultExplorerModel: explorer,
         defaultMemoryModel: memory,
-        selectedModel: explorer,
-      }),
+        selectedModel: selected,
+      });
+    },
 
     setSelectedModel: (model: string) => set({ selectedModel: model }),
 
     setMaxSteps: (steps: number) => set({ maxSteps: steps }),
 
     setLiveRunMaxSteps: (steps: number | null) => set({ liveRunMaxSteps: steps }),
+
+    setLiveGameSessionId: (sessionId: string | null) =>
+      set({ liveGameSessionId: sessionId }),
 
     setGameState: (state: GameState) => set({ gameState: state }),
 
@@ -76,6 +93,7 @@ export function createRunActions(set: AgentStoreSet, _get: AgentStoreGet) {
         memorySnippets: [],
         liveSteps: [],
         liveRunMaxSteps: null,
+        liveGameSessionId: null,
         lastEventAt: Date.now(),
         hydrationWatermark: null,
         lastRunResult: null,

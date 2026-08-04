@@ -44,7 +44,7 @@ export function RunControlPanel({
   const pendingNewSession = useAgentStore((s) => s.pendingNewSession);
   const analysisRunId = useAgentStore((s) => s.analysisRunId);
   const runs = useAgentStore((s) => s.runs);
-  const models = useAgentStore((s) => s.models);
+  const modelGroups = useAgentStore((s) => s.modelGroups);
   const maxSteps = useAgentStore((s) => s.maxSteps);
   const maxHumanAssists = useAgentStore((s) => s.maxHumanAssists);
   const setMaxSteps = useAgentStore((s) => s.setMaxSteps);
@@ -259,16 +259,20 @@ export function RunControlPanel({
                 {metaDivider}
                 {draftMode ? (
                   <select
-                    className={`${selectClass} max-w-[14rem]`}
+                    className={`${selectClass} max-w-[18rem]`}
                     value={displayModel}
                     onChange={(e) => handleDraftModelChange(e.target.value)}
                     disabled={submitting}
                     aria-label="Explorer model"
                   >
-                    {models.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
+                    {modelGroups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.models.map((m) => (
+                          <option key={m.id} value={m.id} disabled={m.disabled}>
+                            {m.disabled ? `🔒 ${m.id} (no API key)` : m.id}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 ) : (

@@ -61,20 +61,40 @@ export function SpectatorLiveButtons() {
   );
 }
 
+function applyOptimisticResume(humanResponse: string | null, initiator: "human" | "agent") {
+  const store = useAgentStore.getState();
+  store.setIsPaused(false);
+  store.setPauseContext({ initiator: null });
+  store.setStatusMessage(
+    initiator === "agent"
+      ? humanResponse
+        ? `Resumed with your answer: ${humanResponse}`
+        : "Resumed without your answer"
+      : humanResponse
+        ? `Resumed with hint: ${humanResponse}`
+        : "Resumed without a hint",
+  );
+}
+
 export function SpectatorPausePanel() {
   const { isRunning, isPaused, pauseInitiator, runId, setStatusMessage } = useAgentStore();
   const [hintText, setHintText] = useState("");
   const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   if (!isRunning || !isPaused || !runId || pauseInitiator === "agent") return null;
 
   const handleResume = async (humanResponse: string | null) => {
     setResuming(true);
+    setResumeError(null);
     try {
       await resumeRun(runId, humanResponse);
       setHintText("");
+      applyOptimisticResume(humanResponse, "human");
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to resume run");
+      const message = err instanceof Error ? err.message : "Failed to resume run";
+      setResumeError(message);
+      setStatusMessage(message);
     } finally {
       setResuming(false);
     }
@@ -91,6 +111,11 @@ export function SpectatorPausePanel() {
         onChange={(e) => setHintText(e.target.value)}
         disabled={resuming}
       />
+      {resumeError && (
+        <p className="mb-1.5 rounded border border-red-500/40 bg-red-950/40 px-2 py-1 text-[10px] text-red-200">
+          {resumeError}
+        </p>
+      )}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -125,16 +150,21 @@ export function AgentQuestionModal() {
   } = useAgentStore();
   const [answerText, setAnswerText] = useState("");
   const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   if (!isRunning || !isPaused || !runId || pauseInitiator !== "agent") return null;
 
   const handleResume = async (humanResponse: string | null) => {
     setResuming(true);
+    setResumeError(null);
     try {
       await resumeRun(runId, humanResponse);
       setAnswerText("");
+      applyOptimisticResume(humanResponse, "agent");
     } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : "Failed to resume run");
+      const message = err instanceof Error ? err.message : "Failed to resume run";
+      setResumeError(message);
+      setStatusMessage(message);
     } finally {
       setResuming(false);
     }
@@ -172,6 +202,11 @@ export function AgentQuestionModal() {
           onKeyDown={handleKeyDown}
           disabled={resuming}
         />
+        {resumeError && (
+          <p className="mb-3 rounded border border-red-500/40 bg-red-950/40 px-2 py-1.5 text-[11px] text-red-200">
+            {resumeError}
+          </p>
+        )}
         <div className="flex justify-end">
           <button
             type="button"

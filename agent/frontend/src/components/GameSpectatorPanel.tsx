@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchSpectateSession } from "../hooks/useAgentSocket";
 import { useDisplayRun } from "../hooks/useDisplayRun";
+import { useAgentStore } from "../store/agentStore";
 import { SpectatorLiveButtons, SpectatorPausePanel } from "./dashboard/GameSpectatorLiveControls";
 
 const GAME_FRONTEND_URL =
@@ -17,16 +18,29 @@ type GameSpectatorPanelProps = {
 
 export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelProps) {
   const { focusedRunId, isRunning } = useDisplayRun();
+  const liveGameSessionId = useAgentStore((s) => s.liveGameSessionId);
+  const liveRunId = useAgentStore((s) => s.runId);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Prefer session_id from run_started (avoids endless pending while the run is live).
+  useEffect(() => {
+    if (!focusedRunId) return;
+    if (liveGameSessionId && focusedRunId === liveRunId) {
+      setSessionId(liveGameSessionId);
+      setLoading(false);
+      setError(null);
+    }
+  }, [focusedRunId, liveGameSessionId, liveRunId]);
 
   useEffect(() => {
     if (!focusedRunId) {
       setSessionId(null);
       setRestored(false);
       setError(null);
+      setLoading(false);
       return;
     }
 
@@ -35,9 +49,17 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
     let attempt = 0;
     const MAX_ATTEMPTS = 40;
 
-    setLoading(true);
-    setError(null);
-    setSessionId(null);
+    const seeded =
+      liveGameSessionId && focusedRunId === liveRunId ? liveGameSessionId : null;
+    if (seeded) {
+      setSessionId(seeded);
+      setLoading(false);
+      setError(null);
+    } else {
+      setLoading(true);
+      setError(null);
+      setSessionId(null);
+    }
 
     const poll = () => {
       if (cancelled) return;
@@ -45,21 +67,34 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
         .then((data) => {
           if (cancelled) return;
           if (data.pending) {
+            if (seeded) {
+              setLoading(false);
+            }
             attempt += 1;
             if (attempt >= MAX_ATTEMPTS) {
               setLoading(false);
-              setError("Run did not produce a game session in time.");
+              if (!seeded) {
+                setError("Run did not produce a game session in time.");
+              }
               return;
             }
             timeoutId = setTimeout(poll, 1500);
             return;
           }
-          setSessionId(data.session_id);
-          setRestored(data.restored);
-          setLoading(false);
+          if (data.session_id) {
+            setSessionId(data.session_id);
+            setRestored(data.restored);
+            setLoading(false);
+            setError(null);
+          }
         })
         .catch((err) => {
           if (cancelled) return;
+          // Don't wipe a working live iframe if analysis restore fails.
+          if (seeded) {
+            setLoading(false);
+            return;
+          }
           setSessionId(null);
           setLoading(false);
           setError(err instanceof Error ? err.message : "Could not load game view.");
@@ -72,6 +107,8 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
+    // Seed from store at effect start; re-poll only when focused run changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedRunId]);
 
   const iframeSrc = sessionId
@@ -94,6 +131,8 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
 
   const emptyViewportStyle = fillHeight ? undefined : { height: SPECTATE_VIEW_HEIGHT };
 
+  const showWaiting = Boolean(focusedRunId && loading && !iframeSrc);
+
   return (
     <div className={panelClass}>
       <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
@@ -115,7 +154,7 @@ export function GameSpectatorPanel({ fillHeight = false }: GameSpectatorPanelPro
         </div>
       )}
 
-      {focusedRunId && loading && (
+      {showWaiting && (
         <div className={emptyViewportClass} style={emptyViewportStyle}>
           <p className="text-xs text-gray-400">
             {isRunning

@@ -19,6 +19,8 @@ def get_settings() -> dict[str, str | int | list[str]]:
     )
     return {
         "openrouter_api_key": os.getenv("OPENROUTER_API_KEY", ""),
+        "google_api_key": os.getenv("GOOGLE_API_KEY", ""),
+        "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", ""),
         "game_api_base_url": os.getenv("GAME_API_BASE_URL", "http://127.0.0.1:8000"),
         "database_url": os.getenv("DATABASE_URL", "sqlite:///./agent.db"),
         "chroma_persist_dir": os.getenv("CHROMA_PERSIST_DIR", "./chroma_db"),

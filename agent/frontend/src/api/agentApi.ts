@@ -22,7 +22,7 @@ export async function fetchModels() {
   if (!res.ok) throw new Error("Failed to load models");
   const data = await res.json();
   useAgentStore.getState().setModels(
-    data.models,
+    data.groups ?? [],
     data.default_explorer_model,
     data.default_memory_model,
   );

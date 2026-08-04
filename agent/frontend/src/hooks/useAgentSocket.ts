@@ -114,6 +114,9 @@ export function useAgentSocket(runId: string | null) {
         if (typeof event.max_steps === "number") {
           store.setLiveRunMaxSteps(event.max_steps);
         }
+        if (event.session_id) {
+          store.setLiveGameSessionId(event.session_id);
+        }
         if (event.memory_session_id) {
           store.setActiveMemorySessionId(event.memory_session_id);
         }

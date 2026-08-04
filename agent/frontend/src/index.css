@@ -15,6 +15,11 @@ select option {
   color: #e5e7eb;
 }
 
+/* Best-effort: many OSes ignore option color; lock prefix remains the cue. */
+select option:disabled {
+  color: #6b7280;
+}
+
 .react-flow__node {
   font-size: 11px;
 }

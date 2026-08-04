@@ -1,5 +1,15 @@
 import type { MemorySourceKind } from "../lib/memorySourceLabels";
 
+export interface ModelOption {
+  id: string;
+  disabled: boolean;
+}
+
+export interface ModelGroup {
+  label: string;
+  models: ModelOption[];
+}
+
 export type AgentEventType =
   | "thought"
   | "action"
@@ -58,6 +68,8 @@ export interface AgentEvent {
   is_fresh_attempt?: boolean;
   memory_session_id?: string | null;
   memory_source?: MemorySourceKind;
+  /** Game spectate session (run_started). */
+  session_id?: string | null;
 }
 
 export interface GameState {

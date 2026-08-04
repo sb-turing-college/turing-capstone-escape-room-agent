@@ -5,6 +5,7 @@ import type {
   GameState,
   LiveStep,
   MemoryEntry,
+  ModelGroup,
   ReasoningItem,
   RunDetail,
   RunResultInfo,
@@ -19,13 +20,15 @@ export interface AgentStore {
   agentTheory: string | null;
   agentQuestion: string | null;
   maxHumanAssists: number;
-  models: string[];
+  modelGroups: ModelGroup[];
   defaultExplorerModel: string;
   defaultMemoryModel: string;
   selectedModel: string;
   maxSteps: number;
   /** send_command budget for the active live run (from run_started). */
   liveRunMaxSteps: number | null;
+  /** Game frontend spectate session for the active live run (from run_started). */
+  liveGameSessionId: string | null;
   gameState: GameState | null;
   reasoningItems: ReasoningItem[];
   mapNodes: Node[];
@@ -64,10 +67,11 @@ export interface AgentStore {
     agentQuestion?: string | null;
   }) => void;
   setMaxHumanAssists: (value: number) => void;
-  setModels: (models: string[], explorer: string, memory: string) => void;
+  setModels: (groups: ModelGroup[], explorer: string, memory: string) => void;
   setSelectedModel: (model: string) => void;
   setMaxSteps: (steps: number) => void;
   setLiveRunMaxSteps: (steps: number | null) => void;
+  setLiveGameSessionId: (sessionId: string | null) => void;
   setGameState: (state: GameState) => void;
   addReasoningEvent: (event: AgentEvent) => void;
   addMapEvent: (event: AgentEvent) => void;

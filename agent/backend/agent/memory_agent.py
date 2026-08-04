@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 from agent.memory_sources import (
@@ -24,6 +27,7 @@ from agent.run_memory import (
 from agent.run_messages import message_text
 from config import get_settings
 from memory.chroma_store import ChromaStore
+from model_catalog import missing_key_detail, model_key_configured, resolve_provider
 
 MAX_RUN_SUMMARIES = 2
 RUN_SUMMARY_MAX_TOKENS = 1024
@@ -50,26 +54,49 @@ def build_llm(
     reasoning_effort: str | None = None,
     max_tokens: int | None = None,
     exclude_reasoning: bool = False,
-) -> ChatOpenAI:
-    """Build an OpenRouter-backed chat model.
+) -> BaseChatModel:
+    """Build a chat model for OpenRouter or ACM direct Google/Anthropic APIs.
 
-    `reasoning_effort` requests OpenRouter's unified `reasoning` field
-    (e.g. "low"/"medium"/"high"). Per OpenRouter docs, models that don't
-    support reasoning simply omit the field server-side, so it's safe to
-    pass for any model — but we only opt in explicitly (see explorer.py)
-    since it adds latency/cost for models that do support it.
+    Routing (see model_catalog.resolve_provider):
+    - id contains `/` → OpenRouter via ChatOpenAI
+    - `gemini-*` → ChatGoogleGenerativeAI
+    - `claude-*` → ChatAnthropic
 
-    `exclude_reasoning` keeps reasoning internal so completion budget is
-    not eaten before visible summary text (memory summarization).
+    `reasoning_effort` / `exclude_reasoning` apply only to OpenRouter's unified
+    `reasoning` field. Direct providers ignore those flags.
     """
     settings = get_settings()
+    if not model_key_configured(model, settings):
+        raise ValueError(missing_key_detail(model))
+
+    provider = resolve_provider(model)
+
+    if provider == "google":
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "google_api_key": str(settings["google_api_key"]),
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            kwargs["max_output_tokens"] = max_tokens
+        return ChatGoogleGenerativeAI(**kwargs)
+
+    if provider == "anthropic":
+        # ChatAnthropic requires max_tokens; use a generous default for explorer.
+        return ChatAnthropic(
+            model=model,
+            api_key=str(settings["anthropic_api_key"]),
+            temperature=temperature,
+            max_tokens=max_tokens if max_tokens is not None else 8192,
+        )
+
     extra_body: dict[str, Any] | None = None
     if reasoning_effort:
         extra_body = {"reasoning": {"effort": reasoning_effort}}
     elif exclude_reasoning:
         extra_body = {"reasoning": {"exclude": True}}
 
-    kwargs: dict[str, Any] = {
+    openrouter_kwargs: dict[str, Any] = {
         "model": model,
         "base_url": "https://openrouter.ai/api/v1",
         "api_key": str(settings["openrouter_api_key"]),
@@ -77,8 +104,8 @@ def build_llm(
         "extra_body": extra_body,
     }
     if max_tokens is not None:
-        kwargs["max_tokens"] = max_tokens
-    return ChatOpenAI(**kwargs)
+        openrouter_kwargs["max_tokens"] = max_tokens
+    return ChatOpenAI(**openrouter_kwargs)
 
 
 class MemoryAgent:

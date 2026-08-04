@@ -47,8 +47,24 @@ from db.database import get_db
 from disclaimer_acceptance import require_disclaimer_accepted
 from db.models import ChatMessageRecord, RunRecord, StepRecord
 from memory.chroma_store import ChromaStore
+from model_catalog import (
+    build_model_groups,
+    flat_model_ids,
+    missing_key_detail,
+    model_key_configured,
+    resolve_default_explorer,
+    resolve_memory_model,
+)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+
+
+def _require_model_keys(*models: str) -> None:
+    """Fail fast with 400 when any model lacks its provider API key."""
+    settings = get_settings()
+    for model in models:
+        if not model_key_configured(model, settings):
+            raise HTTPException(status_code=400, detail=missing_key_detail(model))
 
 
 def _http_for_llm_provider_error(exc: APIError) -> HTTPException:
@@ -82,11 +98,14 @@ _spectate_session_cache: dict[str, str] = {}
 
 
 @router.get("/models")
-def list_models() -> dict[str, list[str] | str]:
+def list_models() -> dict[str, object]:
     settings = get_settings()
+    groups = build_model_groups(settings)
     return {
-        "models": list(settings["available_models"]),
-        "default_explorer_model": str(settings["default_explorer_model"]),
+        # Flat list kept for backward compatibility / smoke tests.
+        "models": flat_model_ids(groups),
+        "groups": groups,
+        "default_explorer_model": resolve_default_explorer(settings, groups),
         "default_memory_model": str(settings["default_memory_model"]),
     }
 
@@ -99,11 +118,9 @@ def start_run(
     _: None = Depends(require_disclaimer_accepted),
 ) -> RunStartResponse:
     settings = get_settings()
-    if not settings["openrouter_api_key"]:
-        raise HTTPException(status_code=400, detail="OPENROUTER_API_KEY not configured.")
-
     explorer_model = body.explorer_model or str(settings["default_explorer_model"])
-    memory_model = body.memory_model or str(settings["default_memory_model"])
+    memory_model = resolve_memory_model(explorer_model, body.memory_model, settings)
+    _require_model_keys(explorer_model, memory_model)
     max_steps = _resolved_max_steps(body.max_steps, settings)
     run = create_run_record(
         db,
@@ -139,8 +156,6 @@ def continue_run(
     source run's stored steps — see agent.runner._rebuild_messages_from_steps.
     """
     settings = get_settings()
-    if not settings["openrouter_api_key"]:
-        raise HTTPException(status_code=400, detail="OPENROUTER_API_KEY not configured.")
 
     source = db.query(RunRecord).filter_by(id=run_id).one_or_none()
     if not source:
@@ -156,6 +171,9 @@ def continue_run(
             status_code=409, detail="No saved game state for this run — cannot continue."
         )
 
+    memory_model = resolve_memory_model(source.explorer_model, source.memory_model, settings)
+    _require_model_keys(source.explorer_model, memory_model)
+
     max_human_assists = (
         body.max_human_assists
         if body.max_human_assists is not None
@@ -165,7 +183,7 @@ def continue_run(
     new_run = create_run_record(
         db,
         source.explorer_model,
-        source.memory_model,
+        memory_model,
         max_steps=max_steps,
         max_human_assists=max_human_assists,
         continued_from_run_id=run_id,
@@ -177,7 +195,7 @@ def continue_run(
         execute_run,
         new_run.id,
         explorer_model=source.explorer_model,
-        memory_model=source.memory_model,
+        memory_model=memory_model,
         max_steps=max_steps,
         resume_from_run_id=run_id,
         resume_hint=body.hint,
@@ -196,8 +214,6 @@ def retry_run(
 ) -> RunStartResponse:
     """Start a fresh game in the same memory session (new attempt, not mid-game resume)."""
     settings = get_settings()
-    if not settings["openrouter_api_key"]:
-        raise HTTPException(status_code=400, detail="OPENROUTER_API_KEY not configured.")
 
     source = db.query(RunRecord).filter_by(id=run_id).one_or_none()
     if not source:
@@ -206,6 +222,9 @@ def retry_run(
         raise HTTPException(
             status_code=409, detail="Run is still running — stop it first or wait for it to finish."
         )
+
+    memory_model = resolve_memory_model(source.explorer_model, source.memory_model, settings)
+    _require_model_keys(source.explorer_model, memory_model)
 
     max_human_assists = (
         body.max_human_assists
@@ -216,7 +235,7 @@ def retry_run(
     new_run = create_run_record(
         db,
         source.explorer_model,
-        source.memory_model,
+        memory_model,
         memory_session_id=source.memory_session_id or run_id,
         max_steps=max_steps,
         max_human_assists=max_human_assists,
@@ -229,7 +248,7 @@ def retry_run(
         execute_run,
         new_run.id,
         explorer_model=source.explorer_model,
-        memory_model=source.memory_model,
+        memory_model=memory_model,
         max_steps=max_steps,
         max_human_assists=max_human_assists,
         fresh_attempt=True,
@@ -405,7 +424,21 @@ async def get_spectate_session(run_id: str, db: Session = Depends(get_db)) -> Sp
                     game_state_json=run.game_state_json,
                 )
             except RuntimeError:
-                state = None
+                # Restore failed (game backend restart, dead session, …).
+                # Still return a known session_id so the spectator iframe can open;
+                # only treat as pending when we have no session at all yet.
+                if run.session_id:
+                    _spectate_session_cache[run_id] = run.session_id
+                    return SpectateSessionResponse(
+                        session_id=run.session_id,
+                        restored=False,
+                    )
+                if run.status == "running":
+                    return SpectateSessionResponse(pending=True)
+                raise HTTPException(
+                    status_code=404,
+                    detail="No game state snapshot available for this run.",
+                )
             else:
                 session_id = state["session_id"]
                 if restored:
@@ -450,8 +483,6 @@ async def post_run_chat(
     _: None = Depends(require_disclaimer_accepted),
 ) -> ChatResponse:
     settings = get_settings()
-    if not settings["openrouter_api_key"]:
-        raise HTTPException(status_code=400, detail="OPENROUTER_API_KEY not configured.")
 
     run = db.query(RunRecord).filter_by(id=run_id).one_or_none()
     if not run:
@@ -461,6 +492,8 @@ async def post_run_chat(
             status_code=409,
             detail="Interview chat is only available after the run has finished.",
         )
+
+    _require_model_keys(run.explorer_model)
 
     history = load_chat_history(db, run)
     transcript = build_transcript(db, run)
