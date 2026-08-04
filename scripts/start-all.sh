@@ -75,6 +75,9 @@ trap cleanup EXIT INT TERM
 
 echo "=== Capstone stack launcher ==="
 
+command -v uv >/dev/null 2>&1 || { echo "ERROR: uv not found — https://docs.astral.sh/uv/" >&2; exit 1; }
+command -v npm >/dev/null 2>&1 || { echo "ERROR: npm not found in PATH" >&2; exit 1; }
+
 if ! $SKIP_GAME && [[ -z "${GAME_ROOT}" ]]; then
   echo "ERROR: game/ folder not found (expected $MONOREPO_ROOT/game)."
   echo "Use --skip-game if the game stack already runs elsewhere."
@@ -105,14 +108,14 @@ if $SEPARATE_WINDOWS; then
   echo "[2] Separate windows mode (one terminal per service)..."
   if ! $SKIP_GAME; then
     start_service_terminal "game-api (:$GAME_PORT)" \
-      "cd '$GAME_BACKEND' && echo 'game-api' && uv run uvicorn main:app --reload --port $GAME_PORT"
+      "cd '$GAME_BACKEND' && echo 'game-api' && uv run uvicorn main:app --reload --host 127.0.0.1 --port $GAME_PORT"
     start_service_terminal "game-ui (:$GAME_FRONTEND_PORT)" \
-      "cd '$GAME_FRONTEND' && echo 'game-ui' && npm run dev"
+      "cd '$GAME_FRONTEND' && echo 'game-ui' && npm run dev -- --host 127.0.0.1 --port $GAME_FRONTEND_PORT"
   fi
   start_service_terminal "agent-api (:$AGENT_PORT)" \
-    "cd '$AGENT_BACKEND' && echo 'agent-api' && uv run uvicorn main:app --reload --port $AGENT_PORT"
+    "cd '$AGENT_BACKEND' && echo 'agent-api' && uv run uvicorn main:app --reload --host 127.0.0.1 --port $AGENT_PORT"
   start_service_terminal "agent-ui (:$FRONTEND_PORT)" \
-    "cd '$AGENT_FRONTEND' && echo 'agent-ui' && npm run dev"
+    "cd '$AGENT_FRONTEND' && echo 'agent-ui' && npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT"
 
   echo ""
   echo "Waiting for services..."
@@ -145,14 +148,14 @@ COLORS=()
 CMDS=()
 if ! $SKIP_GAME; then
   NAMES+=("game-api"); COLORS+=("blue")
-  CMDS+=("cd '$GAME_BACKEND' && uv run uvicorn main:app --reload --port $GAME_PORT")
+  CMDS+=("cd '$GAME_BACKEND' && uv run uvicorn main:app --reload --host 127.0.0.1 --port $GAME_PORT")
   NAMES+=("game-ui"); COLORS+=("cyan")
-  CMDS+=("cd '$GAME_FRONTEND' && npm run dev")
+  CMDS+=("cd '$GAME_FRONTEND' && npm run dev -- --host 127.0.0.1 --port $GAME_FRONTEND_PORT")
 fi
 NAMES+=("agent-api"); COLORS+=("magenta")
-CMDS+=("cd '$AGENT_BACKEND' && uv run uvicorn main:app --reload --port $AGENT_PORT")
+CMDS+=("cd '$AGENT_BACKEND' && uv run uvicorn main:app --reload --host 127.0.0.1 --port $AGENT_PORT")
 NAMES+=("agent-ui"); COLORS+=("green")
-CMDS+=("cd '$AGENT_FRONTEND' && npm run dev")
+CMDS+=("cd '$AGENT_FRONTEND' && npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT")
 
 IFS=','; NAME_ARG="${NAMES[*]}"; COLOR_ARG="${COLORS[*]}"; unset IFS
 

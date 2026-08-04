@@ -90,7 +90,7 @@ if $SEPARATE_WINDOWS; then
   start_service_terminal "game-api (:$BACKEND_PORT)" \
     "cd '$BACKEND_DIR' && echo 'game-api' && uv run uvicorn main:app --host 127.0.0.1 --port $BACKEND_PORT --reload"
   start_service_terminal "game-ui (:$FRONTEND_PORT)" \
-    "cd '$FRONTEND_DIR' && echo 'game-ui' && npm run dev"
+    "cd '$FRONTEND_DIR' && echo 'game-ui' && npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT"
   wait_http_ok "http://127.0.0.1:$BACKEND_PORT/health" "game-api" || true
   wait_port_listening "$FRONTEND_PORT" "game-ui" || true
   if ! $NO_BROWSER; then
@@ -127,7 +127,7 @@ npm exec -- concurrently \
   -c "blue,cyan" \
   --kill-others \
   "cd '$BACKEND_DIR' && uv run uvicorn main:app --host 127.0.0.1 --port $BACKEND_PORT --reload" \
-  "cd '$FRONTEND_DIR' && npm run dev"
+  "cd '$FRONTEND_DIR' && npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT"
 status=$?
 
 if [[ -n "$BROWSER_PID" ]]; then

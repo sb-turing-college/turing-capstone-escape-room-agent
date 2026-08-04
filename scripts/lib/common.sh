@@ -14,7 +14,8 @@ stop_listening_ports() {
     if command -v lsof >/dev/null 2>&1; then
       pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
     elif command -v ss >/dev/null 2>&1; then
-      pids="$(ss -ltnp "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)"
+      # Portable parse (no GNU grep -P); ss may show users:(("cmd",pid=N,fd=M))
+      pids="$(ss -ltnp "sport = :$port" 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | sort -u || true)"
     fi
     while read -r pid; do
       [[ -z "${pid:-}" ]] && continue
